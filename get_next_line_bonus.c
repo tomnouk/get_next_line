@@ -12,80 +12,84 @@
 
 #include "get_next_line_bonus.h"
 
+/* Libère la mémoire allouée à un pointeur et le met à NULL */
 void	free_ptr(char *ptr)
 {
-	if (ptr)
-	{
-		free(ptr);
-		ptr = NULL;
-	}
+    if (ptr)
+    {
+        free(ptr);
+        ptr = NULL;
+    }
 }
 
+/* Lit une ligne à partir d'un descripteur de fichier */
 char	*get_next_line(int fd)
 {
-	char		*line;
-	static char	*string_buffer[OPEN_MAX];
-	char		*buffer;
+    char		*line;
+    static char	*remaining_lines_buffer[OPEN_MAX];
+    char		*read_buffer;
 
-	if (fd < 0 || BUFFER_SIZE <= 0 || fd > OPEN_MAX)
-		return (NULL);
-	buffer = malloc((BUFFER_SIZE + 1) * sizeof(char));
-	if (!buffer)
-		return (NULL);
-	if (read(fd, buffer, 0) < 0)
-	{
-		free(buffer);
-		return (NULL);
-	}
-	if (!string_buffer[fd])
-		string_buffer[fd] = ft_strdup("");
-	if (read_file(fd, &buffer, &string_buffer[fd], &line) == 0 && *line == '\0')
-	{
-		free_ptr(line);
-		return (NULL);
-	}
-	return (line);
+    if (fd < 0 || BUFFER_SIZE <= 0 || fd > OPEN_MAX)
+        return (NULL);
+    read_buffer = malloc((BUFFER_SIZE + 1) * sizeof(char));
+    if (!read_buffer)
+        return (NULL);
+    if (read(fd, read_buffer, 0) < 0)
+    {
+        free(read_buffer);
+        return (NULL);
+    }
+    if (!remaining_lines_buffer[fd])
+        remaining_lines_buffer[fd] = ft_strdup("");
+    if (read_and_process_file(fd, &read_buffer, &remaining_lines_buffer[fd], &line) == 0 && *line == '\0')
+    {
+        free_ptr(line);
+        return (NULL);
+    }
+    return (line);
 }
 
-int	read_file(int fd, char **buffer, char **string_buff, char **line)
+/* Lit le fichier et traite les données lues */
+int	read_and_process_file(int fd, char **read_buffer, char **remaining_lines_buffer, char **line)
 {
-	int		read_bytes;
-	char	*temp;
+    int		read_bytes;
+    char	*temp;
 
-	read_bytes = 1;
-	while (!ft_strchr(*string_buff, '\n') && read_bytes)
-	{
-		read_bytes = read(fd, *buffer, BUFFER_SIZE);
-		(*buffer)[read_bytes] = '\0';
-		temp = *string_buff;
-		*string_buff = ft_strjoin(*string_buff, *buffer);
-		free_ptr(temp);
-	}
-	free_ptr(*buffer);
-	get_line(line, string_buff);
-	return (read_bytes);
+    read_bytes = 1;
+    while (!ft_strchr(*remaining_lines_buffer, '\n') && read_bytes)
+    {
+        read_bytes = read(fd, *read_buffer, BUFFER_SIZE);
+        (*read_buffer)[read_bytes] = '\0';
+        temp = *remaining_lines_buffer;
+        *remaining_lines_buffer = ft_strjoin(*remaining_lines_buffer, *read_buffer);
+        free_ptr(temp);
+    }
+    free_ptr(*read_buffer);
+    extract_line(line, remaining_lines_buffer);
+    return (read_bytes);
 }
 
-char	*get_line(char **line, char **string_buff)
+/* Extrait une ligne du buffer de lignes restantes */
+char	*extract_line(char **line, char **remaining_lines_buffer)
 {
-	char	*temp;
-	int		buff_newl;
+    char	*temp;
+    int		newline_position;
 
-	buff_newl = 0;
-	temp = *string_buff;
-	while ((*string_buff)[buff_newl] != '\n' &&
-		(*string_buff)[buff_newl] != '\0')
-		buff_newl++;
-	if (ft_strchr(*string_buff, '\n'))
-	{
-		*line = ft_substr(*string_buff, 0, buff_newl + 1);
-		*string_buff = ft_strdup(*string_buff + buff_newl + 1);
-	}
-	else
-	{
-		*line = ft_strdup(temp);
-		*string_buff = NULL;
-	}
-	free_ptr(temp);
-	return (*line);
+    newline_position = 0;
+    temp = *remaining_lines_buffer;
+    while ((*remaining_lines_buffer)[newline_position] != '\n' &&
+        (*remaining_lines_buffer)[newline_position] != '\0')
+        newline_position++;
+    if (ft_strchr(*remaining_lines_buffer, '\n'))
+    {
+        *line = ft_substr(*remaining_lines_buffer, 0, newline_position + 1);
+        *remaining_lines_buffer = ft_strdup(*remaining_lines_buffer + newline_position + 1);
+    }
+    else
+    {
+        *line = ft_strdup(temp);
+        *remaining_lines_buffer = NULL;
+    }
+    free_ptr(temp);
+    return (*line);
 }
